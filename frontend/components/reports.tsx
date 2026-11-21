@@ -2,32 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDownToLine, CalendarDays, Coins, Pencil, Plus, Target, Trash2, TrendingUp, Wallet } from "lucide-react";
-import { Blank, Feedback, Modal, NumericInput, baseMoney, decimal, formatError, localDigits, money, numeric } from "./shared";
+import { Blank, DateInput, Feedback, Modal, NumericInput, baseMoney, decimal, formatError, localDigits, money, numeric, persianDate } from "./shared";
 import type { Client, Currency } from "./shared";
 import { DataForm } from "./manage-menu";
+import { ManualSaleForm } from "./manual-sale";
+import type { ManualSaleRecord } from "./manual-sale";
 
 const months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
-const datePattern = "[۰-۹٠-٩0-9]{4}/[۰-۹٠-٩0-9]{1,2}/[۰-۹٠-٩0-9]{1,2}";
-const dateFormatter = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", year: "numeric", month: "2-digit", day: "2-digit" });
-const persianDate = (v?: string) => dateFormatter.format(v ? new Date(v + "T12:00:00Z") : new Date()).replace(/[‎‏]/g, "");
 type Common = { client: Client; prefix: string; notify: (message: string) => void };
 type Range = { start: string; end: string };
-type Manual = { id: number; date: string; amount: string; note: string };
 type SalesReport = Range & {
   sales: string; profit: string | null; target: string | null; progress: string | null; orders: number;
   quantity: number; missing: number; products: { name: string; quantity: number; sales: string; material: string; missing: number }[];
-  targets: (Range & { amount: string })[]; manual: Manual[]; manual_total: string;
+  targets: (Range & { amount: string })[]; manual: ManualSaleRecord[]; manual_total: string;
 };
 
 function Stat({ icon, name, value, description }: { icon: React.ReactNode; name: string; value: React.ReactNode; description?: string }) {
   return <div className="panel stat"><span className="icon-tile sage">{icon}</span><p>{name}</p><strong>{value}</strong>{description && <small>{description}</small>}</div>;
-}
-
-function DateInput({ name, label, value }: { name: string; label: string; value: string }) {
-  return <label>{label}<input name={name} defaultValue={value} dir="ltr" inputMode="text" pattern={datePattern} placeholder="۱۴۰۵/۰۸/۰۱" required onChange={(event) => {
-    const input = event.currentTarget;
-    input.value = input.value.replace(/[^0-9۰-۹٠-٩/]/g, "");
-  }} /></label>;
 }
 
 export function Sales({ client, prefix, currency, notify }: Common & { currency: Currency }) {
@@ -36,8 +27,8 @@ export function Sales({ client, prefix, currency, notify }: Common & { currency:
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(false);
-  const [manual, setManual] = useState<Manual | null>(null);
-  const [remove, setRemove] = useState<Manual | null>(null);
+  const [manual, setManual] = useState<ManualSaleRecord | null>(null);
+  const [remove, setRemove] = useState<ManualSaleRecord | null>(null);
 
   const refresh = useCallback(async (selection?: Range) => {
     setBusy(true); setError("");
@@ -109,7 +100,7 @@ export function Sales({ client, prefix, currency, notify }: Common & { currency:
         </tbody></table>
       </div>}
       <section className="panel report-panel">
-        <div className="section-head"><div><h3>فروش دستی</h3><p>جمع شیت دستی در این بازه به واحد ثبت‌شده در فایل {money(data.manual_total)}</p></div>
+        <div className="section-head"><div><h3>فروش دستی</h3><p>جمع فروش دستی در این بازه {money(data.manual_total)} تومان</p></div>
           <button className="button soft" onClick={() => setManual({ id: 0, date: "", amount: "", note: "" })}><Plus size={17} /> ثبت فروش دستی</button></div>
         {data.manual.length > 0 && <div className="table-wrap">
           <table><thead><tr><th>تاریخ</th><th>مبلغ ثبت‌شده</th><th>یادداشت</th><th>عملیات</th></tr></thead><tbody>
@@ -125,11 +116,7 @@ export function Sales({ client, prefix, currency, notify }: Common & { currency:
         </DataForm>
       </Modal>}
       {manual && <Modal title={manual.id ? "ویرایش فروش دستی" : "ثبت فروش دستی"} close={() => setManual(null)}>
-        <DataForm action={(form) => client("/reports/manual" + (manual.id ? "/" + manual.id : ""), manual.id ? "PATCH" : "POST", { day: form.get("day"), amount: numeric(String(form.get("amount"))), note: form.get("note") })} saved={() => saved("فروش دستی ذخیره شد.")}>
-          <DateInput name="day" label="تاریخ شمسی" value={persianDate(manual.date || undefined)} />
-          <label>مبلغ ثبت‌شده<NumericInput name="amount" defaultValue={manual.amount ? money(manual.amount) : ""} fractionDigits={4} grouped required /></label>
-          <label>یادداشت<input name="note" defaultValue={manual.note} maxLength={200} /></label>
-        </DataForm>
+        <ManualSaleForm client={client} entry={manual} saved={() => saved("فروش دستی ذخیره شد.")} />
       </Modal>}
       {remove && <Modal title="حذف فروش دستی" close={() => setRemove(null)}>
         <DataForm action={() => client("/reports/manual/" + remove.id, "DELETE")} saved={() => saved("فروش دستی حذف شد.")} button="تأیید حذف">

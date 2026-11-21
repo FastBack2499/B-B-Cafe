@@ -100,6 +100,20 @@ export const todayIso = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia
 export const shamsi = (value: string, time = false) =>
   new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "medium", ...(time ? { timeStyle: "short" } : {}) }).format(new Date(value.length === 10 ? value + "T12:00:00Z" : value));
 
+const persianDateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", year: "numeric", month: "2-digit", day: "2-digit" });
+const datePattern = "[۰-۹٠-٩0-9]{4}/[۰-۹٠-٩0-9]{1,2}/[۰-۹٠-٩0-9]{1,2}";
+
+export function persianDate(date?: string) {
+  return persianDateFormatter.format(date ? new Date(date + "T12:00:00Z") : new Date()).replace(/[‎‏]/g, "");
+}
+
+export function DateInput({ name, label, value }: { name: string; label: string; value: string }) {
+  return <label>{label}<input name={name} defaultValue={value} dir="ltr" inputMode="text" pattern={datePattern} placeholder="۱۴۰۵/۰۸/۰۱" required onChange={(event) => {
+    const input = event.currentTarget;
+    input.value = input.value.replace(/[^0-9۰-۹٠-٩/]/g, "");
+  }} /></label>;
+}
+
 const icons: Record<string, LucideIcon> = {
   espresso: Coffee, iced: CupSoda, matcha: Leaf, hot: Flame, mocktail: Martini,
   shake: IceCreamCone, tea: GlassWater, bakery: Croissant, breakfast: Sandwich,

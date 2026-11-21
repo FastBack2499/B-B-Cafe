@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   BarChart3, BookOpen, Check, ClipboardList, Coffee, History, KeyRound, LayoutGrid, LockKeyhole,
-  LogOut, Menu as MenuIcon,
+  LogOut, Menu as MenuIcon, Pencil,
 } from "lucide-react";
 import { Brand, Feedback, Modal, RequestError, formatError, request } from "./shared";
 import type { Client, Currency, Menu, User } from "./shared";
@@ -12,10 +12,12 @@ import { InstallButton } from "./pwa";
 import { PointOfSale } from "./pos";
 import { Orders } from "./orders";
 import { ManageMenu } from "./manage-menu";
+import { ManualSale } from "./manual-sale";
 import { Accounts, Sales } from "./reports";
 
 const pages = [
   { key: "pos", label: "ثبت سفارش", icon: LayoutGrid },
+  { key: "manual", label: "ثبت دستی", icon: Pencil },
   { key: "open", label: "سفارش‌های باز", icon: ClipboardList },
   { key: "history", label: "تاریخچه سفارش‌ها", icon: History },
   { key: "menu", label: "مدیریت منو", icon: Coffee, owner: true },
@@ -127,6 +129,7 @@ export function Staff({ staffKey }: { staffKey: string }) {
           {menu ? <PointOfSale client={client} menu={menu} refreshMenu={refreshMenu} notify={setNotice} showOrders={() => navigate("open")} /> :
             <div className="skeleton" aria-label="در حال بارگذاری منو" />}
         </div>
+        {page === "manual" && <ManualSale client={client} notify={setNotice} />}
         {(page === "open" || page === "history") && <Orders key={page} history={page === "history"} owner={user.role === "owner"} client={client} currency={currency} notify={setNotice} />}
         {user.role === "owner" && page === "menu" && <ManageMenu client={client} refreshMenu={refreshMenu} notify={setNotice} />}
         {user.role === "owner" && page === "sales" && <Sales client={client} prefix={prefix} currency={currency} notify={setNotice} />}

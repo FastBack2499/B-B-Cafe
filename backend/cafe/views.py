@@ -465,7 +465,10 @@ def fix_cost(request, identifier):
 def iso_day(data, key):
     value = data.get(key)
     if isinstance(value, str) and "/" in value:
-        return jalali_date(value.strip()).togregorian()
+        try:
+            return jalali_date(value.strip()).togregorian()
+        except (TypeError, ValueError) as error:
+            raise ApiError(f"مقدار «{name_labels.get(key, key)}» تاریخ شمسی معتبری نیست.") from error
     return clean(forms.DateField(input_formats=["%Y-%m-%d"]), data, key)
 
 
@@ -520,15 +523,35 @@ def target(request):
     return {"saved": True}
 
 
+def manual_sale_values(data):
+    return {
+        "date": iso_day(data, "day"),
+        "amount": clean(MONEY, data, "amount"),
+        "note": string(data, "note", 200, False),
+    }
+
+
+@api("POST", staff=True)
+def create_manual_sale(request):
+    request_id = uuid.UUID(string(request.data, "request_id", 36))
+    values = manual_sale_values(request.data)
+    sale, created = ManualSale.objects.get_or_create(
+        source_key=f"manual:pos:{request.user.pk}:{request_id}",
+        defaults=values,
+    )
+    if not created and any(getattr(sale, field) != value for field, value in values.items()):
+        raise ApiError("این درخواست قبلاً برای فروش دستی دیگری ثبت شده است.", 409)
+    return {"saved": True, "id": sale.pk}
+
+
 @api("POST", "PATCH", "DELETE", owner=True, staff=True)
 def manual_sale(request, identifier=None):
     sale = obj(ManualSale.objects, pk=identifier) if identifier else ManualSale()
     if request.method == "DELETE":
         sale.delete()
     else:
-        sale.date = iso_day(request.data, "day")
-        sale.amount = clean(MONEY, request.data, "amount")
-        sale.note = string(request.data, "note", 200, False)
+        for field, value in manual_sale_values(request.data).items():
+            setattr(sale, field, value)
         sale.save()
     return {"saved": True}
 
@@ -569,7 +592,10 @@ def movement(request, identifier=None):
         entry.month = integer(data, "month", 1, 12)
         entry.day = integer(data, "day", 1, 31, False)
         if entry.day is not None:
-            jdatetime.date(entry.year, entry.month, entry.day)
+            try:
+                jdatetime.date(entry.year, entry.month, entry.day)
+            except ValueError as error:
+                raise ApiError("روز واردشده با ماه و سال شمسی سازگار نیست.") from error
         entry.person = string(data, "person", 12)
         entry.kind = string(data, "kind", 12)
         entry.amount = integer(data, "amount", 1, 10**12)

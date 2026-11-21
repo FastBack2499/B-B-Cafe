@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -8,7 +8,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from .calculations import TEHRAN, ledger
-from .models import Category, Order, OrderItem, Product, Transaction
+from .models import Category, ManualSale, Order, OrderItem, Product, Transaction
 
 
 class CafeWorkflows(TestCase):
@@ -135,6 +135,46 @@ class CafeWorkflows(TestCase):
         self.assertEqual(month["roham_available"], Decimal("46.5"))
         self.assertEqual(following_month["opening"], 123)
         self.assertEqual(following_month["receivable"], 12)
+
+    def test_cash_transaction_accepts_unimported_entries(self):
+        fields = {
+            "year": "1405", "month": "8", "day": "30", "person": "mehdi",
+            "kind": "deposit", "amount": "11250000", "note": "",
+        }
+        self.client.force_login(self.owner)
+        saved = self.json(self.client, "/accounts/transaction", fields)
+        self.assertEqual(saved.status_code, 200)
+        entry = Transaction.objects.get()
+        self.assertEqual((entry.day, entry.amount, entry.source_key), (30, 11250000, None))
+        saved = self.json(self.client, f"/accounts/transaction/{entry.pk}", {**fields, "day": ""}, "patch")
+        self.assertEqual(saved.status_code, 200)
+        entry.refresh_from_db()
+        self.assertIsNone(entry.day)
+        invalid = self.json(self.client, "/accounts/transaction", {**fields, "day": "31"})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn("روز", invalid.json()["error"])
+        self.assertEqual(Transaction.objects.count(), 1)
+
+    def test_staff_manual_sale_appears_in_owner_report_once(self):
+        values = {"day": "۱۴۰۵/۰۸/۳۰", "amount": "125000", "request_id": str(uuid.uuid4())}
+        self.assertEqual(self.json(self.client, "/orders/manual", values).status_code, 401)
+        self.client.force_login(self.barista)
+        entry = self.json(self.client, "/orders/manual", values)
+        self.assertEqual(entry.status_code, 200)
+        self.assertEqual(self.json(self.client, "/orders/manual", values).json(), entry.json())
+        self.assertEqual(self.json(self.client, "/orders/manual", {**values, "amount": "125001"}).status_code, 409)
+        self.assertEqual(self.json(self.client, "/orders/manual", {**values, "day": "1405/08/31"}).status_code, 400)
+        self.assertEqual(self.client.get(self.staff_url("/reports/sales")).status_code, 403)
+        self.assertEqual(self.json(self.client, "/reports/manual", values).status_code, 403)
+        self.assertEqual(ManualSale.objects.count(), 1)
+        self.assertEqual(ManualSale.objects.get().date, date(2026, 11, 21))
+
+        self.client.force_login(self.owner)
+        report = self.client.get(self.staff_url("/reports/sales"), {
+            "start": "1405/08/30", "end": "1405/08/30",
+        }).json()
+        self.assertEqual(report["manual"][0]["id"], entry.json()["id"])
+        self.assertEqual(Decimal(report["manual_total"]), Decimal("125000"))
 
     def test_retried_bulk_close_does_not_close_later_orders(self):
         self.client.force_login(self.owner)

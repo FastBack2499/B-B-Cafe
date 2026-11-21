@@ -142,7 +142,7 @@ class Transaction(models.Model):
     kind = models.CharField(max_length=12, choices=Kind)
     amount = models.PositiveBigIntegerField(validators=[MinValueValidator(1)])
     note = models.CharField(max_length=250, blank=True)
-    source_key = models.CharField(max_length=80, unique=True, null=True)
+    source_key = models.CharField(max_length=80, unique=True, null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["year", "month", "day"])]

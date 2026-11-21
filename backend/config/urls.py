@@ -7,6 +7,7 @@ staff = [
     path("password", views.password_change),
     path("menu", views.staff_menu),
     path("orders", views.orders),
+    path("orders/manual", views.create_manual_sale),
     path("orders/close", views.close_orders),
     path("lines/<int:identifier>/cost", views.fix_cost),
     path("manage/menu", views.manage_menu),
