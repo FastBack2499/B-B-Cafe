@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.venv/
+.local/
+node_modules/
+.next/
+.vercel/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.tsbuildinfo
+*.xlsx
+*.xlsm
+
+next-env.d.ts

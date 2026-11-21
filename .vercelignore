@@ -1,0 +1,11 @@
+.env
+.env.*
+.venv
+.local
+.git
+**/node_modules
+**/.next
+**/__pycache__
+*.xlsx
+*.xlsm
+*.sqlite3

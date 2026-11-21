@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+if [[ ! -f .env ]]; then
+  echo 'Copy .env.example to .env and set your database connection and app secrets.' >&2
+  exit 1
+fi
+set -a
+source .env
+set +a
+
+if [[ -f .local/start-postgres ]]; then
+  bash .local/start-postgres
+fi
+.venv/bin/python backend/manage.py migrate
+.venv/bin/python backend/manage.py runserver 127.0.0.1:8000 --noreload &
+backend_pid=$!
+trap 'kill "$backend_pid" 2>/dev/null || true' EXIT
+printf '\nPublic menu: http://localhost:3000/\nPrivate staff address: http://localhost:3000/%s\n\n' "$STAFF_ROUTE_KEY"
+if [[ -f .local/accounts ]]; then
+  printf 'Local account credentials are saved in .local/accounts.\n\n'
+fi
+cd frontend
+npm run dev -- --hostname localhost
