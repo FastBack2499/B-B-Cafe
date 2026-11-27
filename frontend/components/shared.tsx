@@ -28,6 +28,7 @@ export const decimal = (v: number | string) => numberFormat.format(Number(v));
 export const localDigits = (value: string) => value.replace(/[0-9]/g, (digit) => digits[Number(digit)]);
 export const numeric = (value: string) => value.replace(/[۰-۹٠-٩]/g, (digit) => String(digits.includes(digit) ? digits.indexOf(digit) : arabicDigits.indexOf(digit))).replace(/[,٬]/g, "").replace(/٫/g, ".").replace(/−/g, "-");
 export const normalized = (value: string) => numeric(value).toLowerCase().replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/‌/g, " ").trim();
+const groupThousands = (value: string) => value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 export function money(value: string | number | null | undefined, currency?: Currency) {
   if (value == null) return "—";
@@ -38,7 +39,7 @@ export function money(value: string | number | null | undefined, currency?: Curr
   const [, sign, whole, fraction = ""] = match;
   const scale = 10n ** BigInt(fraction.length);
   const amount = BigInt(whole + fraction) * BigInt(multiplier);
-  const grouped = (amount / scale).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const grouped = groupThousands((amount / scale).toString());
   const decimals = (amount % scale).toString().padStart(fraction.length, "0").replace(/0+$/, "");
   return localDigits((sign && amount ? "−" : "") + grouped + (decimals ? "٫" + decimals : ""));
 }
@@ -69,7 +70,7 @@ export function NumericInput({ fractionDigits = 0, grouped = false, signed = fal
   function filter(value: string) {
     const sign = signed && /^[-−]/.test(value) ? "-" : "";
     const [whole, ...fraction] = fractionDigits ? value.split(/[.٫]/) : [value];
-    const integer = whole.replace(grouped ? /[^0-9۰-۹٠-٩,٬]/g : /[^0-9۰-۹٠-٩]/g, "");
+    const integer = whole.replace(/[^0-9۰-۹٠-٩]/g, "");
     const decimals = fraction.join("").replace(/[^0-9۰-۹٠-٩]/g, "").slice(0, fractionDigits);
     return sign + integer + (fraction.length ? "." + decimals : "");
   }
@@ -78,9 +79,24 @@ export function NumericInput({ fractionDigits = 0, grouped = false, signed = fal
     inputMode={signed ? "text" : fractionDigits ? "decimal" : "numeric"}
     onChange={(event) => {
       const input = event.currentTarget;
-      const value = filter(input.value);
-      if (value !== input.value) {
-        const caret = filter(input.value.slice(0, input.selectionStart ?? input.value.length)).length;
+      const raw = input.value;
+      let value = filter(raw);
+      if (grouped) {
+        const [whole, fraction] = numeric(value).split(".");
+        const integer = groupThousands(whole).replace("-", "−");
+        value = localDigits(integer + (fraction === undefined ? "" : "٫" + fraction));
+      }
+      if (value !== raw) {
+        const position = input.selectionStart ?? raw.length;
+        let caret = filter(raw.slice(0, position)).length;
+        if (grouped) {
+          // Keep the cursor at the same digit when commas move.
+          for (let index = 0; index < caret; index++) {
+            if (value[index] === ",") caret++;
+          }
+          const deletingForward = (event.nativeEvent as InputEvent).inputType === "deleteContentForward";
+          if (value[caret] === "," && (raw[position - 1] === "," || deletingForward)) caret++;
+        }
         input.value = value;
         input.setSelectionRange(caret, caret);
       }
