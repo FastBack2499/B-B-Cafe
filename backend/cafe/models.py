@@ -128,6 +128,7 @@ class Transaction(models.Model):
         MEHDI = "mehdi", "مهدی"
         ROHAM = "roham", "رهام"
         KAMYAR = "kamyar", "کامیار"
+        CARD_READER = "card_reader", "کارتخوان"
 
     class Kind(models.TextChoices):
         DEPOSIT = "deposit", "واریز به صندوق"

@@ -66,6 +66,10 @@ export function Sales({ client, prefix, currency, notify }: Common & { currency:
         </form>
         <div className="toolbar">
           <button className="button soft" disabled={busy} onClick={() => void refresh()}>ماه جاری</button>
+          <button className="button soft" disabled={busy} onClick={() => {
+            const today = persianDate();
+            void refresh({ start: today, end: today });
+          }}>امروز</button>
           {!!data.targets.length && <label className="compact-label">بازه‌های دارای هدف<select value={data.targets.some((t) => t.start + "/" + t.end === rangeKey) ? rangeKey : ""} disabled={busy} onChange={(event) => {
             if (!event.target.value) return;
             const [start, end] = event.target.value.split("/");

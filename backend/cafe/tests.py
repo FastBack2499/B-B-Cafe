@@ -155,6 +155,20 @@ class CafeWorkflows(TestCase):
         self.assertIn("روز", invalid.json()["error"])
         self.assertEqual(Transaction.objects.count(), 1)
 
+    def test_card_reader_transaction_appears_in_cash_ledger(self):
+        self.client.force_login(self.owner)
+        saved = self.json(self.client, "/accounts/transaction", {
+            "year": 1405, "month": 9, "day": 6, "person": "card_reader", "kind": "deposit", "amount": 250000,
+        })
+        self.assertEqual(saved.status_code, 200)
+
+        report = self.client.get(self.staff_url("/accounts"), {"year": 1405, "month": 9}).json()
+        entry, = report["entries"]
+        self.assertEqual(report["people"][entry["person"]], "کارتخوان")
+        self.assertEqual(entry["amount"], 250000)
+        self.assertEqual(report["selected"]["cash"], 250000)
+        self.assertEqual((report["selected"]["mehdi"], report["selected"]["roham"]), (0, 0))
+
     def test_staff_manual_sale_appears_in_owner_report_once(self):
         values = {"day": "۱۴۰۵/۰۸/۳۰", "amount": "125000", "request_id": str(uuid.uuid4())}
         self.assertEqual(self.json(self.client, "/orders/manual", values).status_code, 401)
